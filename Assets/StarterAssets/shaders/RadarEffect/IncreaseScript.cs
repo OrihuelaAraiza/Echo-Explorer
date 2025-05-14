@@ -15,6 +15,11 @@ public class IncreaseScript : MonoBehaviour
     public Material Echo;
     public float fadeduration = 2f;
 
+    public float cooldownTime = 2f; // Editable in Inspector
+    private float nextAllowedUseTime = 0f;
+
+
+
     // Start is called before the first frame update
     void Start()
     {
@@ -26,15 +31,29 @@ public class IncreaseScript : MonoBehaviour
     void Update()
     {
         
-        if(Input.GetKeyDown(KeyCode.Q))
+        if(Time.time >= nextAllowedUseTime)
         {
-            Echo.SetFloat("_Transparency", 1f);
-            transform.localScale = initialScale;
-            isScaling = true;
-            hasFaded = false;
+            if (Input.GetKeyDown(KeyCode.Q))
+            {
+                Echo.SetFloat("_Transparency", 1f);
+                transform.localScale = initialScale;
+                isScaling = true;
+                hasFaded = false;
+
+                AudioSource audio = GetComponent<AudioSource>();
+                if (audio != null)
+                {
+                    audio.enabled = true;
+                    audio.Play();
+                    StartCoroutine(DisableAudioSourceAfterPlay(audio));
+                }
+
+                nextAllowedUseTime = Time.time + cooldownTime;
+            }
+
         }
 
-        if(isScaling)
+        if (isScaling)
         {
             transform.localScale = Vector3.Lerp(transform.localScale, targetScale, scaleSpeed * Time.deltaTime);
 
@@ -51,6 +70,13 @@ public class IncreaseScript : MonoBehaviour
             
         }
         
+    }
+
+    private IEnumerator DisableAudioSourceAfterPlay(AudioSource audio)
+    {
+        yield return new WaitForSeconds(audio.clip.length);
+        audio.Stop();        
+        audio.enabled = false;
     }
 
     private IEnumerator FadeTransparency()

@@ -20,6 +20,23 @@ public class EchoScript : MonoBehaviour
                     // Set to full visibility immediately
                     mat.SetFloat("_Transparency", 1f);
                     // Start fading it back to 0
+                    //StartCoroutine(FadeToZero(mat));
+                }
+            }
+        }
+    }
+
+    private void OnTriggerExit(Collider other)
+    {
+        if (other.gameObject.CompareTag("EchoTarget"))
+        {
+            Renderer rend = other.gameObject.GetComponent<Renderer>();
+            if (rend != null)
+            {
+                Material mat = rend.material;
+                if (mat.HasProperty("_Transparency"))
+                {
+                    // Start fading only after leaving the trigger
                     StartCoroutine(FadeToZero(mat));
                 }
             }
