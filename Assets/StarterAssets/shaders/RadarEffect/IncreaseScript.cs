@@ -1,102 +1,96 @@
-using System.Collections;
+﻿using System.Collections;
 using System.Collections.Generic;
 using UnityEngine;
 
+[RequireComponent(typeof(AudioSource))]
 public class IncreaseScript : MonoBehaviour
 {
-    public Vector3 targetScale = new Vector3 (2f, 2f, 2f);
+    public Vector3 targetScale = new Vector3(2f, 2f, 2f);
     public Vector3 initialScale = new Vector3(1f, 1f, 1f);
-
     public float scaleSpeed = 1f;
 
     private bool isScaling = false;
     private bool hasFaded = false;
 
     public Material Echo;
-    public float fadeduration = 2f;
 
-    public float cooldownTime = 2f; // Editable in Inspector
+    [Header("Duraciones")]
+    public float holdDuration = 0.5f;   // ⟵ NUEVO: tiempo a α = 1
+    public float fadeDuration = 2f;     // antes llamado fadeduration
+
+    public float cooldownTime = 2f;
     private float nextAllowedUseTime = 0f;
 
+    [Header("Ping Audio + Radio")]
+    public AudioClip pingClip;
+    public float sonarRadius = 30f;
 
+    AudioSource src;
 
-    // Start is called before the first frame update
+    static readonly int idTransp = Shader.PropertyToID("_Transparency");
+
     void Start()
     {
         transform.localScale = initialScale;
-        
+
+        src = GetComponent<AudioSource>();
+        src.playOnAwake = false;
+        src.spatialBlend = 1f;
+        if (pingClip) src.clip = pingClip;
+
+        Echo.SetFloat(idTransp, 0f);            // siempre inicia 0
     }
 
-    // Update is called once per frame
     void Update()
     {
-        
-        if(Time.time >= nextAllowedUseTime)
+        if (Time.time >= nextAllowedUseTime && Input.GetKeyDown(KeyCode.Q))
         {
-            if (Input.GetKeyDown(KeyCode.Q))
-            {
-                Echo.SetFloat("_Transparency", 1f);
-                transform.localScale = initialScale;
-                isScaling = true;
-                hasFaded = false;
+            StopAllCoroutines();                // ⟵ NUEVO: resetea corrutinas
+            Echo.SetFloat(idTransp, 1f);        // sube a 1
 
-                AudioSource audio = GetComponent<AudioSource>();
-                if (audio != null)
-                {
-                    audio.enabled = true;
-                    audio.Play();
-                    StartCoroutine(DisableAudioSourceAfterPlay(audio));
-                }
+            transform.localScale = initialScale;
+            isScaling = true;
+            hasFaded = false;
 
-                nextAllowedUseTime = Time.time + cooldownTime;
-            }
+            if (pingClip) src.PlayOneShot(pingClip); else src.Play();
+            EchoEventManager.Broadcast(transform.position, sonarRadius);
 
+            nextAllowedUseTime = Time.time + cooldownTime;
         }
 
         if (isScaling)
         {
-            transform.localScale = Vector3.Lerp(transform.localScale, targetScale, scaleSpeed * Time.deltaTime);
+            transform.localScale = Vector3.Lerp(
+                                      transform.localScale,
+                                      targetScale,
+                                      scaleSpeed * Time.deltaTime);
 
-            float distance = Vector3.Distance(transform.localScale, targetScale);
-
-            if ( distance< 1000f && !hasFaded)
+            if (Vector3.Distance(transform.localScale, targetScale) < 0.05f
+                && !hasFaded)
             {
                 transform.localScale = targetScale;
                 isScaling = false;
                 hasFaded = true;
-                StartCoroutine(FadeTransparency());
-                
+                StartCoroutine(FadeTransparency());     // inicia fade UNA vez
             }
-            
         }
-        
     }
 
-    private IEnumerator DisableAudioSourceAfterPlay(AudioSource audio)
+    IEnumerator FadeTransparency()
     {
-        yield return new WaitForSeconds(audio.clip.length);
-        audio.Stop();        
-        audio.enabled = false;
-    }
+        /* mantiene α = 1 durante holdDuration */
+        yield return new WaitForSeconds(holdDuration);
 
-    private IEnumerator FadeTransparency()
-    {
-        float startValue = 1f;
-        float endValue = 0f;
         float elapsed = 0f;
-
-        while (elapsed < fadeduration)
+        while (elapsed < fadeDuration)
         {
-            float t = elapsed / fadeduration;
-            float currentValue = Mathf.Lerp(startValue, endValue, t);
-            Echo.SetFloat("_Transparency", currentValue);
+            float t = elapsed / fadeDuration;
+            Echo.SetFloat(idTransp, Mathf.Lerp(1f, 0f, t));
             elapsed += Time.deltaTime;
             yield return null;
         }
 
-        
-        Echo.SetFloat("_Transparency", 0f);
-
+        Echo.SetFloat(idTransp, 0f);             // vuelve a 0 garantizado
         transform.localScale = initialScale;
     }
 }

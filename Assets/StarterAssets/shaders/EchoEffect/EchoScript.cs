@@ -1,61 +1,51 @@
-using System.Collections;
-using System.Collections.Generic;
+﻿using System.Collections;
 using UnityEngine;
 
 public class EchoScript : MonoBehaviour
 {
-    public float fadeDuration = 1f; // Time to fade from 1 to 0
+    public float fadeDuration = 1f;      // tiempo 1→0
+    public float holdDuration = 0.5f;    // NUEVO: tiempo a 1 antes de desvanecer
 
-    private void OnTriggerEnter(Collider other)
+    void OnTriggerEnter(Collider other)
     {
-
-        if (other.gameObject.CompareTag("EchoTarget"))
+        if (other.CompareTag("EchoTarget"))
         {
-            Renderer rend = other.gameObject.GetComponent<Renderer>();
-            if (rend != null)
-            {
-                Material mat = rend.material; // Get instance material
-                if (mat.HasProperty("_Transparency"))
-                {
-                    // Set to full visibility immediately
-                    mat.SetFloat("_Transparency", 1f);
-                    // Start fading it back to 0
-                    //StartCoroutine(FadeToZero(mat));
-                }
-            }
+            Renderer r = other.GetComponent<Renderer>();
+            if (!r || !r.material.HasProperty("_Transparency")) return;
+
+            Material m = r.material;
+            m.SetFloat("_Transparency", 1f);
+            StartCoroutine(FadeAfterHold(m));          // ← ACTIVA fade
         }
     }
 
-    private void OnTriggerExit(Collider other)
+    void OnTriggerExit(Collider other)
     {
-        if (other.gameObject.CompareTag("EchoTarget"))
+        if (other.CompareTag("EchoTarget"))
         {
-            Renderer rend = other.gameObject.GetComponent<Renderer>();
-            if (rend != null)
-            {
-                Material mat = rend.material;
-                if (mat.HasProperty("_Transparency"))
-                {
-                    // Start fading only after leaving the trigger
-                    StartCoroutine(FadeToZero(mat));
-                }
-            }
+            Renderer r = other.GetComponent<Renderer>();
+            if (r && r.material.HasProperty("_Transparency"))
+                StartCoroutine(FadeToZero(r.material));
         }
     }
 
-    private System.Collections.IEnumerator FadeToZero(Material mat)
-    {
-        float elapsed = 0f;
-        float startValue = 1f;
+    /* -------- corrutinas -------- */
 
-        while (elapsed < fadeDuration)
+    IEnumerator FadeAfterHold(Material mat)            // NUEVA
+    {
+        yield return new WaitForSeconds(holdDuration);
+        yield return FadeToZero(mat);
+    }
+
+    IEnumerator FadeToZero(Material mat)
+    {
+        float t = 0;
+        while (t < fadeDuration)
         {
-            elapsed += Time.deltaTime;
-            float newValue = Mathf.Lerp(startValue, 0f, elapsed / fadeDuration);
-            mat.SetFloat("_Transparency", newValue);
+            t += Time.deltaTime;
+            mat.SetFloat("_Transparency", Mathf.Lerp(1f, 0f, t / fadeDuration));
             yield return null;
         }
-
-        mat.SetFloat("_Transparency", 0f); // Ensure it hits zero cleanly
+        mat.SetFloat("_Transparency", 0f);
     }
 }
